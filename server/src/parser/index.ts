@@ -1,0 +1,303 @@
+// Main entry point for the device spec parser.
+// Pure function: (rawText) -> ParseResult. No HTTP, no DB, no I/O.
+
+import {
+  isJunkLine,
+  isSentinel,
+  matchSection,
+  splitManufacturer,
+  classFromToken,
+  normalizeKey,
+  snakeKey,
+} from './dictionary.js';
+import {
+  firstNumber,
+  parsePriceePair,
+  parseSpeed,
+  parseFirstCopyOut,
+  parseScanSpeed,
+  parseStatus,
+  parseCapability,
+} from './values.js';
+import { parseSupplies } from './supplies.js';
+import { emptyDevice, type ParseResult, type ParsedDevice } from './types.js';
+
+interface Pair {
+  key: string | null; // null => orphan line (no colon)
+  value: string;
+}
+
+// Split one physical line into key/value pairs, handling:
+//  - "Key:\tValue"
+//  - "Key1:\tVal1\tKey2:\tVal2"  (two-column rows)
+//  - "Key: Value"                (space delimiter)
+//  - orphan lines with no colon  (notes)
+function extractPairs(line: string): Pair[] {
+  const cells = line.split('\t');
+  const pairs: Pair[] = [];
+  let i = 0;
+  while (i < cells.length) {
+    const cell = cells[i].trim();
+    if (cell === '') {
+      i++;
+      continue;
+    }
+    if (cell.endsWith(':')) {
+      const key = cell.slice(0, -1).trim();
+      const value = i + 1 < cells.length ? cells[i + 1].trim() : '';
+      pairs.push({ key, value });
+      i += 2;
+    } else if (cell.includes(':')) {
+      const idx = cell.indexOf(':');
+      pairs.push({ key: cell.slice(0, idx).trim(), value: cell.slice(idx + 1).trim() });
+      i += 1;
+    } else {
+      pairs.push({ key: null, value: cell });
+      i += 1;
+    }
+  }
+  return pairs;
+}
+
+function setAttribute(
+  attributes: Record<string, Record<string, string>>,
+  section: string,
+  key: string,
+  value: string,
+): void {
+  if (isSentinel(value)) return;
+  if (!attributes[section]) attributes[section] = {};
+  attributes[section][snakeKey(key)] = value.trim();
+}
+
+export function parseDevice(rawText: string): ParseResult {
+  const device = emptyDevice();
+  const attributes: Record<string, Record<string, string>> = {};
+
+  const allLines = rawText.split(/\r?\n/);
+  const lines = allLines.filter((l) => !isJunkLine(l));
+
+  // ── Header: first non-junk line is the full device name. ──────────────────
+  let cursor = 0;
+  if (lines.length > 0) {
+    device.fullName = lines[0].trim();
+    const { manufacturer, model } = splitManufacturer(device.fullName);
+    device.manufacturer = manufacturer;
+    device.model = model;
+    cursor = 1;
+  }
+
+  // Header descriptor lines (until first section or first "key: value").
+  // e.g. "MFP • 28 ppm", "Full-color printer, MF", "Laser".
+  while (cursor < lines.length) {
+    const line = lines[cursor];
+    if (matchSection(line)) break;
+    if (line.includes(':') && !line.includes('•')) break;
+
+    const lower = line.toLowerCase();
+    if (line.includes('•')) {
+      // "MFP • 28 ppm" => class + speed
+      const [classTok, speedTok] = line.split('•').map((s) => s.trim());
+      if (classTok && device.deviceClass === 'unknown') device.deviceClass = classFromToken(classTok);
+      if (speedTok && device.speedRaw === null) {
+        device.speedRaw = speedTok;
+        const sp = parseSpeed(speedTok);
+        device.speedPpmColor = sp.color;
+        device.speedPpmBlack = sp.black;
+      }
+    }
+    if (/\bfull-?color\b|\bcolou?r\b/.test(lower) && device.colorCapability === null) {
+      device.colorCapability = 'color';
+    } else if (/\b(mono|black\s*&?\s*white|b\/w)\b/.test(lower) && device.colorCapability === null) {
+      device.colorCapability = 'mono';
+    }
+    if (/\blaser\b/.test(lower) && device.technology === null) device.technology = 'laser';
+    else if (/\bink-?jet\b/.test(lower) && device.technology === null) device.technology = 'inkjet';
+    else if (/\bled\b/.test(lower) && device.technology === null) device.technology = 'led';
+    if (device.deviceClass === 'unknown') {
+      const c = classFromToken(line);
+      if (c !== 'unknown') device.deviceClass = c;
+    }
+    cursor++;
+  }
+
+  // ── Body: walk remaining lines, tracking the current section. ─────────────
+  let section = 'overview';
+  const supplyLines: string[] = [];
+
+  for (let li = cursor; li < lines.length; li++) {
+    const line = lines[li];
+
+    const sec = matchSection(line);
+    if (sec) {
+      section = sec;
+      continue;
+    }
+
+    if (section === 'supplies') {
+      supplyLines.push(line);
+      continue;
+    }
+    if (section === 'options') {
+      continue; // options dropped per product owner
+    }
+
+    const pairs = extractPairs(line);
+    for (let pi = 0; pi < pairs.length; pi++) {
+      const pair = pairs[pi];
+      if (pair.key === null) {
+        // Orphan note line — attach to the section.
+        if (!isSentinel(pair.value)) {
+          const existing = attributes[section]?._notes;
+          setAttribute(attributes, section, '_notes', existing ? `${existing}; ${pair.value}` : pair.value);
+        }
+        continue;
+      }
+
+      let value = pair.value;
+      // Empty value + last pair on the line => value continues on next line.
+      if (value === '' && pi === pairs.length - 1) {
+        const next = lines[li + 1];
+        if (next && !matchSection(next) && !next.includes(':') && next.trim() !== '') {
+          value = next.trim();
+          li++;
+        }
+      }
+      mapPair(device, attributes, section, pair.key, value);
+    }
+  }
+
+  const supplies = parseSupplies(supplyLines);
+
+  const unmappedKeys = Object.entries(attributes).flatMap(([sec, kv]) =>
+    Object.keys(kv).map((k) => `${sec}.${k}`),
+  );
+
+  return {
+    device,
+    supplies,
+    attributes,
+    confidence: computeConfidence(device, supplies.length),
+    unmappedKeys,
+    rawText,
+  };
+}
+
+// Route a single key/value pair to a first-class column, else to attributes.
+function mapPair(
+  device: ParsedDevice,
+  attributes: Record<string, Record<string, string>>,
+  section: string,
+  rawKey: string,
+  value: string,
+): void {
+  const key = normalizeKey(rawKey);
+
+  // Section-scoped capability flags first (keys like "fax" are ambiguous globally).
+  if (section === 'modes') {
+    if (key === 'fax') {
+      device.faxRaw = value;
+      device.faxCapable = parseCapability(value);
+      return;
+    }
+  }
+
+  switch (key) {
+    case 'part number':
+      if (!isSentinel(value)) device.partNumber = value.trim();
+      return;
+    case 'srp/street price':
+    case 'srp / street price':
+    case 'street price': {
+      const { srp, street } = parsePriceePair(value);
+      device.srpPrice = srp;
+      device.streetPrice = street;
+      return;
+    }
+    case 'domestic intro date':
+    case 'intro date':
+      if (!isSentinel(value)) device.introDate = value.trim();
+      return;
+    case 'manufacturing status': {
+      const { status, raw } = parseStatus(value);
+      device.manufacturingStatus = status;
+      device.manufacturingStatusRaw = raw;
+      return;
+    }
+    case 'speed':
+      if (!isSentinel(value)) {
+        device.speedRaw = value.trim();
+        const sp = parseSpeed(value);
+        if (sp.color !== null) device.speedPpmColor = sp.color;
+        if (sp.black !== null) device.speedPpmBlack = sp.black;
+      }
+      return;
+    case 'first-page-out time':
+    case 'first copy time':
+      if (!isSentinel(value)) {
+        device.firstCopyOutRaw = value.trim();
+        device.firstCopyOutSec = parseFirstCopyOut(value);
+      }
+      return;
+    case 'scan speed (simplex/duplex)':
+    case 'scan speed':
+      if (!isSentinel(value)) {
+        device.scanSpeedRaw = value.trim();
+        device.scanSpeedIpm = parseScanSpeed(value);
+      }
+      return;
+    case 'network interface':
+    case 'interface type':
+      if (!isSentinel(value)) {
+        device.networkInterfaceRaw = device.networkInterfaceRaw
+          ? `${device.networkInterfaceRaw}; ${value.trim()}`
+          : value.trim();
+        if (/ethernet|baset|10\/100|gigabit/i.test(value)) device.hasEthernet = true;
+        if (/wireless|wi-?fi|802\.11/i.test(value)) device.hasWifi = true;
+      }
+      return;
+    case 'near field communication':
+      device.hasNfc = parseCapability(value);
+      return;
+    case 'max original size':
+      if (!isSentinel(value) && device.maxPaperSize === null) device.maxPaperSize = value.trim();
+      return;
+    case 'paper sizes':
+      if (!isSentinel(value) && device.maxPaperSize === null) device.maxPaperSize = value.trim();
+      return;
+    default:
+      break;
+  }
+
+  // Detect WiFi mentioned anywhere in connectivity values.
+  if (section === 'connectivity' && /wireless|wi-?fi|802\.11/i.test(value) && device.hasWifi === null) {
+    device.hasWifi = true;
+  }
+
+  setAttribute(attributes, section, rawKey, value);
+}
+
+// Completeness heuristic. Header identity is weighted heavily because a failed
+// header parse means we mis-read the whole document.
+function computeConfidence(device: ParsedDevice, supplyCount: number): number {
+  let score = 0;
+  let max = 0;
+
+  const weigh = (got: boolean, weight: number) => {
+    max += weight;
+    if (got) score += weight;
+  };
+
+  weigh(device.manufacturer !== null, 3);
+  weigh(device.model !== null && device.model !== '', 2);
+  weigh(device.deviceClass !== 'unknown', 2);
+  weigh(device.speedRaw !== null, 1);
+  weigh(device.partNumber !== null, 1);
+  weigh(device.colorCapability !== null, 1);
+  weigh(device.streetPrice !== null || device.srpPrice !== null, 1);
+  weigh(supplyCount > 0, 2);
+
+  return Math.round((score / max) * 100) / 100;
+}
+
+export * from './types.js';

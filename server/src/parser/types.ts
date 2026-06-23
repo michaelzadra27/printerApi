@@ -1,0 +1,101 @@
+// Pure, dependency-free types for the device spec parser.
+// Shared contract for the API, future browser extension, and bulk import.
+
+export type DeviceClass =
+  | 'printer'
+  | 'mfp'
+  | 'copier'
+  | 'scanner'
+  | 'production'
+  | 'fax'
+  | 'unknown';
+
+export interface ParsedSupply {
+  description: string;
+  partNumber: string | null;
+  color: string | null; // black | cyan | magenta | yellow | tri-color | color
+  yieldPages: number | null;
+  price: number | null;
+  coverage: string | null;
+  supplyType: string | null; // toner | ink | drum | cartridge | maintenance
+  rawLine: string;
+}
+
+export interface ParsedDevice {
+  // Identity
+  manufacturer: string | null;
+  model: string | null;
+  fullName: string | null;
+  deviceClass: DeviceClass;
+  colorCapability: string | null; // 'color' | 'mono'
+  technology: string | null; // 'laser' | 'inkjet' | 'led' | ...
+
+  // SKU / pricing / lifecycle
+  partNumber: string | null;
+  streetPrice: number | null;
+  srpPrice: number | null;
+  introDate: string | null;
+  manufacturingStatus: string | null; // 'active' | 'discontinued'
+  manufacturingStatusRaw: string | null;
+
+  // Performance
+  speedPpmBlack: number | null;
+  speedPpmColor: number | null;
+  speedRaw: string | null;
+  firstCopyOutSec: number | null;
+  firstCopyOutRaw: string | null;
+  scanSpeedIpm: number | null;
+  scanSpeedRaw: string | null;
+
+  // Capabilities (elevated per product owner)
+  faxCapable: boolean | null;
+  faxRaw: string | null;
+  hasEthernet: boolean | null;
+  hasWifi: boolean | null;
+  hasNfc: boolean | null;
+  networkInterfaceRaw: string | null;
+
+  // Paper
+  maxPaperSize: string | null;
+}
+
+export interface ParseResult {
+  device: ParsedDevice;
+  supplies: ParsedSupply[];
+  // Everything recognized but not promoted to a column, namespaced by section.
+  attributes: Record<string, Record<string, string>>;
+  confidence: number; // 0..1 completeness heuristic
+  unmappedKeys: string[]; // "section.key" entries that landed in attributes
+  rawText: string;
+}
+
+export function emptyDevice(): ParsedDevice {
+  return {
+    manufacturer: null,
+    model: null,
+    fullName: null,
+    deviceClass: 'unknown',
+    colorCapability: null,
+    technology: null,
+    partNumber: null,
+    streetPrice: null,
+    srpPrice: null,
+    introDate: null,
+    manufacturingStatus: null,
+    manufacturingStatusRaw: null,
+    speedPpmBlack: null,
+    speedPpmColor: null,
+    speedRaw: null,
+    firstCopyOutSec: null,
+    firstCopyOutRaw: null,
+    scanSpeedIpm: null,
+    scanSpeedRaw: null,
+    faxCapable: null,
+    faxRaw: null,
+    hasEthernet: null,
+    hasWifi: null,
+    hasNfc: null,
+    networkInterfaceRaw: null,
+    maxPaperSize: null,
+  };
+}
