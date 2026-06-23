@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { listDevices, exportFullDevices, type CatalogDevice } from '../api';
+import { listDevices, exportFullDevices, exportSupplies, type CatalogDevice } from '../api';
 import { toCsv, downloadCsv, type CsvColumn } from '../csv';
 import DeviceDetail from './DeviceDetail';
 
@@ -45,6 +45,21 @@ const CSV_COLUMNS: CsvColumn[] = [
   { key: 'updated_at', label: 'Updated' },
 ];
 
+const SUPPLY_CSV_COLUMNS: CsvColumn[] = [
+  { key: 'manufacturer', label: 'Manufacturer' },
+  { key: 'model', label: 'Model' },
+  { key: 'device_class', label: 'Class' },
+  { key: 'paper_size_class', label: 'Paper' },
+  { key: 'description', label: 'Supply' },
+  { key: 'part_number', label: 'Part #' },
+  { key: 'color', label: 'Color' },
+  { key: 'supply_type', label: 'Type' },
+  { key: 'yield_pages', label: 'Yield' },
+  { key: 'price', label: 'Price' },
+  { key: 'cost_per_page_cents', label: 'Cost/Page (cents)' },
+  { key: 'coverage', label: 'Coverage' },
+];
+
 function bool(v: boolean | null): string {
   return v === true ? '✓' : v === false ? '✗' : '—';
 }
@@ -64,6 +79,7 @@ export default function CatalogScreen() {
   }, []);
 
   const [fullBusy, setFullBusy] = useState(false);
+  const [supplyBusy, setSupplyBusy] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -103,6 +119,27 @@ export default function CatalogScreen() {
       setError((e as Error).message);
     } finally {
       setFullBusy(false);
+    }
+  }
+
+  // One row per sellable SKU with cost/page, honoring the current search.
+  async function exportSuppliesCsv() {
+    setSupplyBusy(true);
+    setError(null);
+    try {
+      const q = search.trim().toLowerCase();
+      const rows = (await exportSupplies()).filter((s) =>
+        !q ||
+        [s.manufacturer, s.model, s.part_number, s.description, s.device_class]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q)),
+      );
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadCsv(`device-supplies-${stamp}.csv`, toCsv(rows as unknown as Record<string, unknown>[], SUPPLY_CSV_COLUMNS));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSupplyBusy(false);
     }
   }
 
@@ -149,6 +186,14 @@ export default function CatalogScreen() {
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 disabled:opacity-50"
           >
             {fullBusy ? 'Exporting…' : 'Export full (+attributes)'}
+          </button>
+          <button
+            onClick={exportSuppliesCsv}
+            disabled={fullBusy || supplyBusy}
+            title="One row per cartridge with cost-per-page (CPI)"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {supplyBusy ? 'Exporting…' : 'Export supplies'}
           </button>
         </div>
       </div>

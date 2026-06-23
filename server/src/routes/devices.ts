@@ -191,6 +191,51 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
     return { devices };
   });
 
+  // Supplies export — one row per sellable SKU, joined to its device, with a
+  // computed cost-per-page (the CPI view).
+  app.get('/api/supplies/export', async (_req, reply) => {
+    if (!supabaseConfigured) return reply.code(503).send({ error: 'Supabase not configured.' });
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('device_supplies')
+      .select(
+        `description, part_number, color, yield_pages, price, coverage, supply_type,
+         devices!inner ( model, device_class, paper_size_class, manufacturers ( name ) )`,
+      );
+    if (error) return reply.code(500).send({ error: error.message });
+
+    const supplies = (data ?? []).map((row) => {
+      const r = row as Record<string, unknown> & {
+        price: number | null;
+        yield_pages: number | null;
+        devices: { model: string; device_class: string; paper_size_class: string | null; manufacturers: { name: string } | { name: string }[] | null } | Array<{ model: string; device_class: string; paper_size_class: string | null; manufacturers: { name: string } | { name: string }[] | null }>;
+      };
+      const dev = Array.isArray(r.devices) ? r.devices[0] : r.devices;
+      const mfr = dev?.manufacturers;
+      const manufacturer = Array.isArray(mfr) ? (mfr[0]?.name ?? null) : (mfr?.name ?? null);
+      const costPerPageCents =
+        r.price && r.yield_pages ? Math.round((r.price / r.yield_pages) * 100 * 10000) / 10000 : null;
+      return {
+        manufacturer,
+        model: dev?.model ?? null,
+        device_class: dev?.device_class ?? null,
+        paper_size_class: dev?.paper_size_class ?? null,
+        description: r.description,
+        part_number: r.part_number,
+        color: r.color,
+        supply_type: r.supply_type,
+        yield_pages: r.yield_pages,
+        price: r.price,
+        cost_per_page_cents: costPerPageCents,
+        coverage: r.coverage,
+      };
+    });
+    supplies.sort((a, b) =>
+      `${a.manufacturer}${a.model}`.localeCompare(`${b.manufacturer}${b.model}`),
+    );
+    return { supplies };
+  });
+
   // Full device detail for the catalog detail view.
   app.get<{ Params: { id: string } }>('/api/devices/:id', async (req, reply) => {
     if (!supabaseConfigured) return reply.code(503).send({ error: 'Supabase not configured.' });

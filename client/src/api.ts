@@ -54,6 +54,27 @@ export async function exportFullDevices(): Promise<FullDevice[]> {
   return (await res.json()).devices;
 }
 
+export interface SupplyExportRow {
+  manufacturer: string | null;
+  model: string | null;
+  device_class: string | null;
+  paper_size_class: string | null;
+  description: string;
+  part_number: string | null;
+  color: string | null;
+  supply_type: string | null;
+  yield_pages: number | null;
+  price: number | null;
+  cost_per_page_cents: number | null;
+  coverage: string | null;
+}
+
+export async function exportSupplies(): Promise<SupplyExportRow[]> {
+  const res = await fetch(`${BASE}/api/supplies/export`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Export failed (${res.status})`);
+  return (await res.json()).supplies;
+}
+
 export interface DetailSupply {
   id: string;
   description: string;
