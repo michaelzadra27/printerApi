@@ -48,16 +48,22 @@ export function isSentinel(value: string): boolean {
 export const SECTION_HEADERS: Record<string, string> = {
   'multifunction modes': 'modes',
   'general specs/paper handling': 'paper_handling',
+  'general specifications': 'general',
+  'paper handling': 'paper_handling',
+  resolution: 'resolution',
+  features: 'features',
   'security specs': 'security',
   'copier features': 'copier_features',
   'other features': 'other_features',
   'additional information': 'additional',
   comments: 'comments',
   'connectivity specs': 'connectivity',
+  'interface/connectivity': 'connectivity',
   'printer specs': 'printer',
   'scanner and image management specs': 'scanner',
   'facsimile specs': 'fax',
   'supplies/maintenance': 'supplies',
+  supplies: 'supplies',
   options: 'options',
 };
 

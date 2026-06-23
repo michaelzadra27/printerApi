@@ -119,6 +119,15 @@ export function parseDevice(rawText: string): ParseResult {
     cursor++;
   }
 
+  // Color/mono is often only stated on the mashed header line that gets stripped
+  // as junk, e.g. "ColorLetter/Legal/A4Compatible Solutions" or
+  // "MonochromeLetter/Legal/A4Compatible Solutions".
+  if (device.colorCapability === null) {
+    const mashed = allLines.slice(0, 8).find((l) => /compatible solutions/i.test(l));
+    if (mashed && /^\s*mono/i.test(mashed)) device.colorCapability = 'mono';
+    else if (mashed && /^\s*colou?r/i.test(mashed)) device.colorCapability = 'color';
+  }
+
   // ── Body: walk remaining lines, tracking the current section. ─────────────
   let section = 'overview';
   const supplyLines: string[] = [];
@@ -167,6 +176,12 @@ export function parseDevice(rawText: string): ParseResult {
 
   const supplies = parseSupplies(supplyLines);
 
+  // Single-function printers don't fax/scan/copy — record fax as absent rather
+  // than leaving it blank when no multifunction section was present.
+  if (device.deviceClass === 'printer' && device.faxCapable === null) {
+    device.faxCapable = false;
+  }
+
   // Feeder type needs both the Document Feeder field and the scan speeds,
   // which appear in different sections — derive once everything is parsed.
   device.scannerFeederType = deriveFeederType(device.documentFeeder, {
@@ -199,6 +214,9 @@ function mapPair(
   value: string,
 ): void {
   const key = normalizeKey(rawKey);
+  // Labels vary by template with a trailing qualifier, e.g.
+  // "First-Page-Out Time (Mono/Color)" or "Paper Size (WxL)". Match on the base.
+  const keyBase = key.replace(/\s*\([^)]*\)\s*$/, '').trim();
 
   // Section-scoped capability flags first (keys like "fax" are ambiguous globally).
   if (section === 'modes') {
@@ -209,7 +227,7 @@ function mapPair(
     }
   }
 
-  switch (key) {
+  switch (keyBase) {
     case 'part number':
       if (!isSentinel(value)) device.partNumber = value.trim();
       return;
@@ -245,7 +263,6 @@ function mapPair(
         device.firstCopyOutSec = parseFirstCopyOut(value);
       }
       return;
-    case 'scan speed (simplex/duplex)':
     case 'scan speed':
       if (!isSentinel(value)) {
         device.scanSpeedRaw = value.trim();
@@ -259,8 +276,16 @@ function mapPair(
     case 'document feeder':
       if (!isSentinel(value)) device.documentFeeder = value.trim();
       return;
+    case 'color type':
+      // "Not applicable" on a print device means monochrome; a named type = color.
+      if (device.colorCapability === null) {
+        device.colorCapability = isSentinel(value) ? 'mono' : 'color';
+      }
+      return;
     case 'network interface':
     case 'interface type':
+    case 'std interface':
+    case 'standard interface':
       if (!isSentinel(value)) {
         device.networkInterfaceRaw = device.networkInterfaceRaw
           ? `${device.networkInterfaceRaw}; ${value.trim()}`
@@ -273,9 +298,8 @@ function mapPair(
       device.hasNfc = parseCapability(value);
       return;
     case 'max original size':
-      if (!isSentinel(value) && device.maxPaperSize === null) device.maxPaperSize = value.trim();
-      return;
     case 'paper sizes':
+    case 'paper size':
       if (!isSentinel(value) && device.maxPaperSize === null) device.maxPaperSize = value.trim();
       return;
     default:

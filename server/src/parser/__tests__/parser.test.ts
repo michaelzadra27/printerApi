@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseDevice } from '../index.js';
 import { M479FDN_SAMPLE } from './m479fdn.sample.js';
+import { M404DN_SAMPLE } from './m404dn.sample.js';
 
 describe('parseDevice — HP M479fdn BLI sample', () => {
   const result = parseDevice(M479FDN_SAMPLE);
@@ -106,5 +107,47 @@ describe('parseDevice — HP M479fdn BLI sample', () => {
 
   it('reports high confidence on a complete sheet', () => {
     expect(result.confidence).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+describe('parseDevice — HP M404dn single-function printer (different template)', () => {
+  const result = parseDevice(M404DN_SAMPLE);
+  const d = result.device;
+
+  it('parses identity incl. monochrome from the mashed header line', () => {
+    expect(d.manufacturer).toBe('HP');
+    expect(d.model).toBe('LaserJet Pro M404dn');
+    expect(d.deviceClass).toBe('printer');
+    expect(d.colorCapability).toBe('mono');
+    expect(d.technology).toBe('laser');
+    expect(d.speedPpm).toBe(40); // from "Printer • 40 ppm"
+  });
+
+  it('handles parenthetical label variants', () => {
+    expect(d.firstCopyOutSec).toBe(6.1); // "First-Page-Out Time (Mono/Color)"
+    expect(d.maxPaperSize).toBe('8.5" x 14" max'); // "Paper Size (WxL)"
+  });
+
+  it('reads the printer-template network label and Ethernet flag', () => {
+    expect(d.networkInterfaceRaw).toMatch(/ethernet/i); // "Std Interface"
+    expect(d.hasEthernet).toBe(true);
+    expect(d.hasWifi).toBeNull();
+  });
+
+  it('records fax as absent for a single-function printer', () => {
+    expect(d.faxCapable).toBe(false);
+  });
+
+  it('parses the bare "Supplies" section (sellable only)', () => {
+    expect(result.supplies).toHaveLength(2); // 2 priced; starter dropped
+    expect(result.supplies.map((s) => s.partNumber)).toEqual(['CF258A', 'CF258X']);
+    expect(result.supplies.every((s) => s.color === 'black')).toBe(true);
+  });
+
+  it('captures SKU/pricing/lifecycle', () => {
+    expect(d.partNumber).toBe('W1A53A');
+    expect(d.streetPrice).toBe(369);
+    expect(d.srpPrice).toBeNull(); // "INA/$369"
+    expect(d.manufacturingStatus).toBe('discontinued');
   });
 });
