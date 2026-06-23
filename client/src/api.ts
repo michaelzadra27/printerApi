@@ -42,6 +42,35 @@ export async function listDevices(): Promise<CatalogDevice[]> {
   return (await res.json()).devices;
 }
 
+export interface DetailSupply {
+  id: string;
+  description: string;
+  part_number: string | null;
+  color: string | null;
+  yield_pages: number | null;
+  price: number | null;
+  coverage: string | null;
+  supply_type: string | null;
+}
+
+export interface DeviceDetail {
+  device: Record<string, unknown> & {
+    id: string;
+    manufacturer: string | null;
+    model: string;
+    attributes: Record<string, Record<string, string>>;
+  };
+  supplies: DetailSupply[];
+  attributes: Record<string, Record<string, string>>;
+  imageUrl: string | null;
+}
+
+export async function getDevice(id: string): Promise<DeviceDetail> {
+  const res = await fetch(`${BASE}/api/devices/${id}`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Load failed (${res.status})`);
+  return res.json();
+}
+
 export async function parseDevice(rawText: string): Promise<ParseResult> {
   const res = await fetch(`${BASE}/api/parse-device`, {
     method: 'POST',

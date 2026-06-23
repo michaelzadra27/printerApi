@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { listDevices, type CatalogDevice } from '../api';
 import { toCsv, downloadCsv, type CsvColumn } from '../csv';
+import DeviceDetail from './DeviceDetail';
 
 // Columns included in the CSV export (a superset of what the table shows).
 const CSV_COLUMNS: CsvColumn[] = [
@@ -43,6 +44,7 @@ export default function CatalogScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     listDevices()
@@ -121,7 +123,11 @@ export default function CatalogScreen() {
             </thead>
             <tbody>
               {filtered.map((d) => (
-                <tr key={d.id} className="border-t border-slate-100 hover:bg-slate-50">
+                <tr
+                  key={d.id}
+                  onClick={() => setSelectedId(d.id)}
+                  className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
+                >
                   <td className="whitespace-nowrap px-3 py-2">{d.manufacturer ?? '—'}</td>
                   <td className="px-3 py-2 font-medium text-slate-800">{d.model}</td>
                   <td className="px-3 py-2 uppercase">{d.device_class}</td>
@@ -139,6 +145,8 @@ export default function CatalogScreen() {
           </table>
         </div>
       )}
+
+      {selectedId && <DeviceDetail id={selectedId} onClose={() => setSelectedId(null)} />}
     </div>
   );
 }

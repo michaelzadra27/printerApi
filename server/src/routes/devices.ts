@@ -151,6 +151,42 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
     return { devices };
   });
 
+  // Full device detail for the catalog detail view.
+  app.get<{ Params: { id: string } }>('/api/devices/:id', async (req, reply) => {
+    if (!supabaseConfigured) return reply.code(503).send({ error: 'Supabase not configured.' });
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('devices')
+      .select('*, manufacturers ( name ), device_supplies ( * )')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ error: error.message });
+    if (!data) return reply.code(404).send({ error: 'Device not found.' });
+
+    const row = data as Record<string, unknown> & {
+      manufacturers: { name: string } | { name: string }[] | null;
+      device_supplies: unknown[] | null;
+      image_path: string | null;
+      attributes: Record<string, Record<string, string>> | null;
+    };
+    const { manufacturers, device_supplies, ...device } = row;
+
+    let imageUrl: string | null = null;
+    if (row.image_path) {
+      imageUrl = sb.storage.from(env.imageBucket).getPublicUrl(row.image_path).data.publicUrl ?? null;
+    }
+
+    return {
+      device: {
+        ...device,
+        manufacturer: Array.isArray(manufacturers) ? (manufacturers[0]?.name ?? null) : (manufacturers?.name ?? null),
+      },
+      supplies: device_supplies ?? [],
+      attributes: row.attributes ?? {},
+      imageUrl,
+    };
+  });
+
   app.post<{ Body: SavePayload }>('/api/devices', async (req, reply) => {
     if (!supabaseConfigured) {
       return reply.code(503).send({ error: 'Supabase not configured. Add keys to .env to save.' });
