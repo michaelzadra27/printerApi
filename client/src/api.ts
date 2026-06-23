@@ -44,6 +44,16 @@ export async function listDevices(): Promise<CatalogDevice[]> {
   return (await res.json()).devices;
 }
 
+export interface FullDevice extends CatalogDevice {
+  attributes: Record<string, Record<string, string>>;
+}
+
+export async function exportFullDevices(): Promise<FullDevice[]> {
+  const res = await fetch(`${BASE}/api/devices/export`);
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Export failed (${res.status})`);
+  return (await res.json()).devices;
+}
+
 export interface DetailSupply {
   id: string;
   description: string;

@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { listDevices, type CatalogDevice } from '../api';
+import { listDevices, exportFullDevices, type CatalogDevice } from '../api';
 import { toCsv, downloadCsv, type CsvColumn } from '../csv';
 import DeviceDetail from './DeviceDetail';
+
+// Shared search predicate so the full export honors the same filter as the table.
+function matches(d: { manufacturer: string | null; model: string; full_name: string | null; part_number: string | null; device_class: string }, q: string): boolean {
+  if (!q) return true;
+  return [d.manufacturer, d.model, d.full_name, d.part_number, d.device_class]
+    .filter(Boolean)
+    .some((v) => String(v).toLowerCase().includes(q));
+}
 
 // Columns included in the CSV export (a superset of what the table shows).
 const CSV_COLUMNS: CsvColumn[] = [
@@ -55,19 +63,47 @@ export default function CatalogScreen() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [fullBusy, setFullBusy] = useState(false);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return devices;
-    return devices.filter((d) =>
-      [d.manufacturer, d.model, d.full_name, d.part_number, d.device_class]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q)),
-    );
+    return devices.filter((d) => matches(d, q));
   }, [devices, search]);
 
   function exportCsv() {
     const stamp = new Date().toISOString().slice(0, 10);
     downloadCsv(`device-catalog-${stamp}.csv`, toCsv(filtered as unknown as Record<string, unknown>[], CSV_COLUMNS));
+  }
+
+  // Fetches attributes on demand, flattens "section.key" into columns (union
+  // across the exported devices), and downloads a wide CSV.
+  async function exportFull() {
+    setFullBusy(true);
+    setError(null);
+    try {
+      const q = search.trim().toLowerCase();
+      const rows = (await exportFullDevices()).filter((d) => matches(d, q));
+      const attrKeys = new Set<string>();
+      const flat = rows.map((d) => {
+        const { attributes, ...base } = d;
+        const out: Record<string, unknown> = { ...base };
+        for (const [section, kv] of Object.entries(attributes ?? {})) {
+          for (const [k, v] of Object.entries(kv)) {
+            const col = `${section}.${k}`;
+            attrKeys.add(col);
+            out[col] = v;
+          }
+        }
+        return out;
+      });
+      const attrCols: CsvColumn[] = [...attrKeys].sort().map((k) => ({ key: k, label: k }));
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadCsv(`device-catalog-full-${stamp}.csv`, toCsv(flat, [...CSV_COLUMNS, ...attrCols]));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setFullBusy(false);
+    }
   }
 
   if (loading) return <p className="text-sm text-slate-500">Loading catalog…</p>;
@@ -105,6 +141,14 @@ export default function CatalogScreen() {
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 disabled:opacity-50"
           >
             Export CSV
+          </button>
+          <button
+            onClick={exportFull}
+            disabled={filtered.length === 0 || fullBusy}
+            title="Includes every attribute as columns (wide sheet)"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {fullBusy ? 'Exporting…' : 'Export full (+attributes)'}
           </button>
         </div>
       </div>

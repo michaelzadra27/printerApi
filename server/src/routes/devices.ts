@@ -154,6 +154,43 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
     return { devices };
   });
 
+  // Heavier listing for the "full" CSV export — same core columns PLUS the
+  // attributes JSONB. Kept separate from the browse list so everyday browsing
+  // stays light; only fetched when the user clicks Export full.
+  app.get('/api/devices/export', async (_req, reply) => {
+    if (!supabaseConfigured) return reply.code(503).send({ error: 'Supabase not configured.' });
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('devices')
+      .select(
+        `id, model, full_name, device_class, color_capability, technology, part_number,
+         street_price, srp_price, intro_date, manufacturing_status,
+         discontinued_date, estimated_end_of_support, speed_ppm, speed_raw,
+         first_copy_out_sec, scan_speed_simplex_black, scan_speed_simplex_color,
+         scan_speed_duplex_black, scan_speed_duplex_color, document_feeder, scanner_feeder_type,
+         fax_capable, has_ethernet, has_wifi, has_nfc, network_interface_raw, max_paper_size,
+         paper_size_class, parse_confidence, updated_at, attributes,
+         manufacturers ( name ),
+         device_supplies ( count )`,
+      )
+      .order('updated_at', { ascending: false });
+    if (error) return reply.code(500).send({ error: error.message });
+
+    const devices = (data ?? []).map((row) => {
+      const d = { ...(row as Record<string, unknown>) };
+      const mfr = d.manufacturers as { name: string } | { name: string }[] | null;
+      const sup = d.device_supplies as { count: number }[] | null;
+      delete d.manufacturers;
+      delete d.device_supplies;
+      return {
+        ...d,
+        manufacturer: Array.isArray(mfr) ? (mfr[0]?.name ?? null) : (mfr?.name ?? null),
+        supply_count: sup?.[0]?.count ?? 0,
+      };
+    });
+    return { devices };
+  });
+
   // Full device detail for the catalog detail view.
   app.get<{ Params: { id: string } }>('/api/devices/:id', async (req, reply) => {
     if (!supabaseConfigured) return reply.code(503).send({ error: 'Supabase not configured.' });
