@@ -48,6 +48,14 @@ export function parseSpeed(value: string): { color: number | null; black: number
   return { color, black };
 }
 
+// "28 ppm color/24 ppm black" -> 28 (the higher of color/black; most machines
+// are equal). We deliberately keep a single headline number — never two.
+export function maxPpm(value: string): number | null {
+  const { color, black } = parseSpeed(value);
+  const vals = [color, black].filter((n): n is number => n !== null);
+  return vals.length ? Math.max(...vals) : null;
+}
+
 // "11.1 sec color/9.5 sec black" -> 9.5 (prefer black, else first)
 export function parseFirstCopyOut(value: string): number | null {
   const { color, black } = parseSpeed(value);

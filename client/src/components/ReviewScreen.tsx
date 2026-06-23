@@ -41,8 +41,7 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
   {
     title: 'Performance',
     fields: [
-      { key: 'speedPpmColor', label: 'Speed color (ppm)', kind: 'number' },
-      { key: 'speedPpmBlack', label: 'Speed black (ppm)', kind: 'number' },
+      { key: 'speedPpm', label: 'Speed (ppm)', kind: 'number' },
       { key: 'firstCopyOutSec', label: 'First copy out (s)', kind: 'number' },
     ],
   },

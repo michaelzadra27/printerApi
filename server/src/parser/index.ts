@@ -11,10 +11,9 @@ import {
   snakeKey,
 } from './dictionary.js';
 import {
-  firstNumber,
   parsePriceePair,
-  parseSpeed,
   parseFirstCopyOut,
+  maxPpm,
   parseScanSpeed,
   deriveFeederType,
   parseStatus,
@@ -102,9 +101,7 @@ export function parseDevice(rawText: string): ParseResult {
       if (classTok && device.deviceClass === 'unknown') device.deviceClass = classFromToken(classTok);
       if (speedTok && device.speedRaw === null) {
         device.speedRaw = speedTok;
-        const sp = parseSpeed(speedTok);
-        device.speedPpmColor = sp.color;
-        device.speedPpmBlack = sp.black;
+        device.speedPpm = maxPpm(speedTok);
       }
     }
     if (/\bfull-?color\b|\bcolou?r\b/.test(lower) && device.colorCapability === null) {
@@ -237,9 +234,8 @@ function mapPair(
     case 'speed':
       if (!isSentinel(value)) {
         device.speedRaw = value.trim();
-        const sp = parseSpeed(value);
-        if (sp.color !== null) device.speedPpmColor = sp.color;
-        if (sp.black !== null) device.speedPpmBlack = sp.black;
+        const ppm = maxPpm(value);
+        if (ppm !== null) device.speedPpm = ppm;
       }
       return;
     case 'first-page-out time':

@@ -39,8 +39,7 @@ export interface ParsedDevice {
   manufacturingStatusRaw: string | null;
 
   // Performance
-  speedPpmBlack: number | null;
-  speedPpmColor: number | null;
+  speedPpm: number | null; // single headline value = max(black, color)
   speedRaw: string | null;
   firstCopyOutSec: number | null;
   firstCopyOutRaw: string | null;
@@ -88,8 +87,7 @@ export function emptyDevice(): ParsedDevice {
     introDate: null,
     manufacturingStatus: null,
     manufacturingStatusRaw: null,
-    speedPpmBlack: null,
-    speedPpmColor: null,
+    speedPpm: null,
     speedRaw: null,
     firstCopyOutSec: null,
     firstCopyOutRaw: null,

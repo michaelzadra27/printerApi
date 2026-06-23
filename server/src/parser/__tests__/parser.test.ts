@@ -34,8 +34,7 @@ describe('parseDevice — HP M479fdn BLI sample', () => {
   });
 
   it('parses performance numbers (raw + parsed)', () => {
-    expect(d.speedPpmColor).toBe(28);
-    expect(d.speedPpmBlack).toBe(28);
+    expect(d.speedPpm).toBe(28); // single headline value, max of black/color
     expect(d.firstCopyOutSec).toBe(9.5); // prefers black
   });
 
@@ -98,6 +97,11 @@ describe('parseDevice — HP M479fdn BLI sample', () => {
     expect(x.yieldPages).toBe(7500);
     expect(x.coverage).toBe('ISO/IEC 19798');
     expect(x.supplyType).toBe('cartridge');
+  });
+
+  it('takes the higher value when black and color speeds differ', () => {
+    const r = parseDevice('HP OfficeJet Pro 8720\nMFP\nPrinter Specs\nSpeed:\t20 ppm color/24 ppm black');
+    expect(r.device.speedPpm).toBe(24);
   });
 
   it('reports high confidence on a complete sheet', () => {

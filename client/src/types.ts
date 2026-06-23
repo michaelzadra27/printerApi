@@ -33,8 +33,7 @@ export interface ParsedDevice {
   introDate: string | null;
   manufacturingStatus: string | null;
   manufacturingStatusRaw: string | null;
-  speedPpmBlack: number | null;
-  speedPpmColor: number | null;
+  speedPpm: number | null;
   speedRaw: string | null;
   firstCopyOutSec: number | null;
   firstCopyOutRaw: string | null;
