@@ -68,8 +68,11 @@ export function parseFirstCopyOut(value: string): number | null {
 // A4 (letter/legal). Reads either the mashed header line
 // ("ColorLedger/Tabloid/A3…") or the max paper-size dimensions ("11 x 17").
 export function classifyPaperClass(text: string): 'A3' | 'A4' | null {
-  if (/\ba3\b|ledger|tabloid|11\s*x\s*17|12(\.\d+)?\s*x\s*18|sra3/i.test(text)) return 'A3';
-  if (/\ba4\b|letter|legal|8[.\-]?1?\/?2?"?\s*x\s*1[14]/i.test(text)) return 'A4';
+  const t = text.toLowerCase();
+  if (/\ba3\b|ledger|tabloid|11\s*x\s*17|12(\.\d+)?\s*x\s*1[78]|sra3/.test(t)) return 'A3';
+  // A long side of 16"+ implies A3-class media (ledger 17", 12x18).
+  if ((t.match(/\d+(?:\.\d+)?/g) ?? []).map(Number).some((n) => n >= 16)) return 'A3';
+  if (/\ba4\b|letter|legal|8\.5|8-1\/2|8 1\/2/.test(t)) return 'A4';
   return null;
 }
 
@@ -129,13 +132,25 @@ export function deriveFeederType(
   return null;
 }
 
-// "Discontinued (07/2023)" -> { status: 'discontinued', raw }
-// "Active" / "Current"     -> { status: 'active', raw }
-export function parseStatus(value: string): { status: string | null; raw: string } {
+// Years added to the discontinued date to estimate end-of-support.
+export const SUPPORT_HORIZON_YEARS = 7;
+
+export function addYears(isoDate: string, years: number): string {
+  const [y, m, d] = isoDate.split('-');
+  return `${Number(y) + years}-${m}-${d}`;
+}
+
+// "Discontinued (07/2023)" -> { status: 'discontinued', raw, date: '2023-07-01' }
+// "Discontinued"           -> { status: 'discontinued', raw, date: null }
+// "Active" / "Current"     -> { status: 'active', raw, date: null }
+export function parseStatus(value: string): { status: string | null; raw: string; date: string | null } {
   const raw = value.trim();
-  if (/discontinu/i.test(raw)) return { status: 'discontinued', raw };
-  if (/active|current|available|shipping/i.test(raw)) return { status: 'active', raw };
-  return { status: isSentinel(raw) ? null : raw.toLowerCase(), raw };
+  // BLI gives month/year, e.g. "(11/2015)". Normalize to the 1st of that month.
+  const m = raw.match(/\((\d{1,2})\/(\d{4})\)/);
+  const date = m ? `${m[2]}-${m[1].padStart(2, '0')}-01` : null;
+  if (/discontinu/i.test(raw)) return { status: 'discontinued', raw, date };
+  if (/active|current|available|shipping/i.test(raw)) return { status: 'active', raw, date: null };
+  return { status: isSentinel(raw) ? null : raw.toLowerCase(), raw, date: null };
 }
 
 // Yes/Std/Standard -> true ; No/Opt only when explicit ; sentinels -> null

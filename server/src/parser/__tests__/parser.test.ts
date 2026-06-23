@@ -3,6 +3,7 @@ import { parseDevice } from '../index.js';
 import { M479FDN_SAMPLE } from './m479fdn.sample.js';
 import { M404DN_SAMPLE } from './m404dn.sample.js';
 import { C360I_SAMPLE } from './c360i.sample.js';
+import { HL2240D_SAMPLE } from './hl2240d.sample.js';
 
 describe('parseDevice — HP M479fdn BLI sample', () => {
   const result = parseDevice(M479FDN_SAMPLE);
@@ -201,5 +202,39 @@ describe('paperSizeClass regression — A4 devices', () => {
   });
   it('classifies the M479fdn MFP as A4', () => {
     expect(parseDevice(M479FDN_SAMPLE).device.paperSizeClass).toBe('A4');
+  });
+  it('classifies the HL-2240D as A4 and mono (mashed line lacks "Compatible Solutions")', () => {
+    const d = parseDevice(HL2240D_SAMPLE).device;
+    expect(d.paperSizeClass).toBe('A4');
+    expect(d.colorCapability).toBe('mono');
+  });
+});
+
+describe('discontinued date + estimated end-of-support', () => {
+  it('extracts the dated discontinued status and adds 7 years (HL-2240D)', () => {
+    const d = parseDevice(HL2240D_SAMPLE).device;
+    expect(d.manufacturingStatus).toBe('discontinued');
+    expect(d.discontinuedDate).toBe('2015-11-01');
+    expect(d.estimatedEndOfSupport).toBe('2022-11-01');
+  });
+
+  it('handles dated statuses on the other samples', () => {
+    expect(parseDevice(M479FDN_SAMPLE).device.discontinuedDate).toBe('2023-07-01');
+    expect(parseDevice(M479FDN_SAMPLE).device.estimatedEndOfSupport).toBe('2030-07-01');
+    expect(parseDevice(M404DN_SAMPLE).device.discontinuedDate).toBe('2023-03-01');
+  });
+
+  it('leaves dates null for current/active devices (C360i)', () => {
+    const d = parseDevice(C360I_SAMPLE).device;
+    expect(d.manufacturingStatus).toBe('active');
+    expect(d.discontinuedDate).toBeNull();
+    expect(d.estimatedEndOfSupport).toBeNull();
+  });
+
+  it('handles "Discontinued" with no date', () => {
+    const d = parseDevice('HP X\nPrinter • 20 ppm\nManufacturing Status:\tDiscontinued').device;
+    expect(d.manufacturingStatus).toBe('discontinued');
+    expect(d.discontinuedDate).toBeNull();
+    expect(d.estimatedEndOfSupport).toBeNull();
   });
 });

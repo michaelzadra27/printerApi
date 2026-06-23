@@ -37,6 +37,8 @@ export interface ParsedDevice {
   introDate: string | null;
   manufacturingStatus: string | null; // 'active' | 'discontinued'
   manufacturingStatusRaw: string | null;
+  discontinuedDate: string | null; // 'YYYY-MM-01' from "Discontinued (MM/YYYY)"
+  estimatedEndOfSupport: string | null; // discontinuedDate + SUPPORT_HORIZON_YEARS
 
   // Performance
   speedPpm: number | null; // single headline value = max(black, color)
@@ -88,6 +90,8 @@ export function emptyDevice(): ParsedDevice {
     introDate: null,
     manufacturingStatus: null,
     manufacturingStatusRaw: null,
+    discontinuedDate: null,
+    estimatedEndOfSupport: null,
     speedPpm: null,
     speedRaw: null,
     firstCopyOutSec: null,

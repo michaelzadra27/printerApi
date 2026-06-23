@@ -28,6 +28,8 @@ function toRow(d: ParsedDevice, manufacturerId: string | null, extra: Record<str
     intro_date: d.introDate,
     manufacturing_status: d.manufacturingStatus,
     manufacturing_status_raw: d.manufacturingStatusRaw,
+    discontinued_date: d.discontinuedDate,
+    estimated_end_of_support: d.estimatedEndOfSupport,
     speed_ppm: d.speedPpm,
     speed_raw: d.speedRaw,
     first_copy_out_sec: d.firstCopyOutSec,
@@ -124,7 +126,8 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
       .from('devices')
       .select(
         `id, model, full_name, device_class, color_capability, technology, part_number,
-         street_price, srp_price, intro_date, manufacturing_status, speed_ppm, speed_raw,
+         street_price, srp_price, intro_date, manufacturing_status,
+         discontinued_date, estimated_end_of_support, speed_ppm, speed_raw,
          first_copy_out_sec, scan_speed_simplex_black, scan_speed_simplex_color,
          scan_speed_duplex_black, scan_speed_duplex_color, document_feeder, scanner_feeder_type,
          fax_capable, has_ethernet, has_wifi, has_nfc, network_interface_raw, max_paper_size,

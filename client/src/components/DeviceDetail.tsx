@@ -31,6 +31,8 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       { key: 'srp_price', label: 'SRP', kind: 'money' },
       { key: 'intro_date', label: 'Intro date' },
       { key: 'manufacturing_status', label: 'Status' },
+      { key: 'discontinued_date', label: 'Discontinued' },
+      { key: 'estimated_end_of_support', label: 'Est. end of support' },
     ],
   },
   {

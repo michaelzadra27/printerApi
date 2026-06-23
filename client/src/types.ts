@@ -33,6 +33,8 @@ export interface ParsedDevice {
   introDate: string | null;
   manufacturingStatus: string | null;
   manufacturingStatusRaw: string | null;
+  discontinuedDate: string | null;
+  estimatedEndOfSupport: string | null;
   speedPpm: number | null;
   speedRaw: string | null;
   firstCopyOutSec: number | null;

@@ -18,6 +18,8 @@ import {
   parseScanSpeed,
   deriveFeederType,
   parseStatus,
+  addYears,
+  SUPPORT_HORIZON_YEARS,
   parseCapability,
 } from './values.js';
 import { parseSupplies } from './supplies.js';
@@ -123,10 +125,13 @@ export function parseDevice(rawText: string): ParseResult {
   // Color/mono is often only stated on the mashed header line that gets stripped
   // as junk, e.g. "ColorLetter/Legal/A4Compatible Solutions" or
   // "MonochromeLetter/Legal/A4Compatible Solutions".
-  // The same line also encodes the media class, e.g.
-  // "ColorLedger/Tabloid/A3…" (A3) vs "ColorLetter/Legal/A4…" (A4).
+  // The same line also encodes the media class, e.g. "ColorLedger/Tabloid/A3…"
+  // (A3) vs "ColorLetter/Legal/A4…" (A4). It begins with the color word and the
+  // paper tokens; the trailing "Compatible Solutions" is not always present.
   {
-    const mashed = allLines.slice(0, 8).find((l) => /compatible solutions/i.test(l));
+    const mashed = allLines
+      .slice(0, 8)
+      .find((l) => /^(monochrome|colou?r)/i.test(l.trim()) && /letter|legal|ledger|tabloid|a3|a4/i.test(l));
     if (mashed) {
       if (device.colorCapability === null) {
         if (/^\s*mono/i.test(mashed)) device.colorCapability = 'mono';
@@ -258,9 +263,11 @@ function mapPair(
       if (!isSentinel(value)) device.introDate = value.trim();
       return;
     case 'manufacturing status': {
-      const { status, raw } = parseStatus(value);
+      const { status, raw, date } = parseStatus(value);
       device.manufacturingStatus = status;
       device.manufacturingStatusRaw = raw;
+      device.discontinuedDate = date;
+      device.estimatedEndOfSupport = date ? addYears(date, SUPPORT_HORIZON_YEARS) : null;
       return;
     }
     case 'speed':

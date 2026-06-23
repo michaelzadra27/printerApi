@@ -15,6 +15,8 @@ export interface CatalogDevice {
   srp_price: number | null;
   intro_date: string | null;
   manufacturing_status: string | null;
+  discontinued_date: string | null;
+  estimated_end_of_support: string | null;
   speed_ppm: number | null;
   speed_raw: string | null;
   first_copy_out_sec: number | null;
