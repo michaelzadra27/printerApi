@@ -238,3 +238,25 @@ describe('discontinued date + estimated end-of-support', () => {
     expect(d.estimatedEndOfSupport).toBeNull();
   });
 });
+
+describe('supplies completeness (catalog keeps real SKUs, price optional)', () => {
+  it('keeps unpriced toner + the drum, drops the starter (HL-2240D)', () => {
+    const supplies = parseDevice(HL2240D_SAMPLE).supplies;
+    expect(supplies.map((s) => s.partNumber)).toEqual(['TN-450', 'DR-420']);
+    expect(supplies.some((s) => /starter/i.test(s.description))).toBe(false);
+
+    const tn = supplies.find((s) => s.partNumber === 'TN-450')!;
+    expect(tn.price).toBeNull(); // unpriced, but kept
+    expect(tn.yieldPages).toBe(2600);
+    expect(tn.supplyType).toBe('toner');
+
+    const drum = supplies.find((s) => s.partNumber === 'DR-420')!;
+    expect(drum.price).toBe(104.99);
+  });
+
+  it('still drops in-box starters even when priced devices have them (M479fdn)', () => {
+    const supplies = parseDevice(M479FDN_SAMPLE).supplies;
+    expect(supplies).toHaveLength(8);
+    expect(supplies.some((s) => /starter/i.test(s.description))).toBe(false);
+  });
+});

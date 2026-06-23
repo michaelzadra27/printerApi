@@ -1,6 +1,8 @@
 // Parses the "Supplies/Maintenance" block into structured SKUs.
-// Per product owner: SELLABLE supplies only — lines without a price
-// (starter/in-box cartridges, "PM Schedule", maintenance notes) are dropped.
+// This is a catalog/data source — keep every real cartridge/drum SKU (a part #,
+// yield, or price identifies one). Only in-box "starter" cartridges and
+// "PM Schedule"/notes are dropped. Price may be null; pricing is owned by the
+// consuming app (uStack).
 
 import type { ParsedSupply } from './types.js';
 import { parseMoney, firstNumber } from './values.js';
@@ -30,14 +32,15 @@ export function parseSupplyLine(line: string): ParsedSupply | null {
   const raw = line.trim();
   if (raw === '') return null;
   if (/^pm schedule/i.test(raw)) return null;
+  // Drop in-box starter cartridges — not separately sellable SKUs.
+  if (/\bstarter\b/i.test(raw)) return null;
 
   // Split on ';' into the main descriptor and trailing Yield/Coverage fields.
   const segments = raw.split(';').map((s) => s.trim());
   const main = segments[0] ?? '';
 
-  // Sellable filter: there must be a price somewhere in the line.
+  // Price is optional (often absent in older exports); pricing lives in uStack.
   const price = parseMoney(raw.includes('$') ? raw.slice(raw.indexOf('$')) : '');
-  if (price === null) return null;
 
   // Part number: last parenthesized token in the main descriptor.
   const partMatches = [...main.matchAll(/\(([^)]+)\)/g)];
@@ -57,6 +60,10 @@ export function parseSupplyLine(line: string): ParsedSupply | null {
     if (/^yield/i.test(seg)) yieldPages = firstNumber(seg);
     else if (/^coverage/i.test(seg)) coverage = seg.replace(/^coverage:\s*/i, '').trim() || null;
   }
+
+  // Keep only lines that identify a real SKU (part #, yield, or price);
+  // skips stray notes in the supplies block.
+  if (!partNumber && yieldPages === null && price === null) return null;
 
   return {
     description,

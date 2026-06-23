@@ -16,14 +16,23 @@ replacement recommendations, and fleet assessments.
   Field-agnostic: strips UI chrome, tracks sections, maps known labels to
   first-class columns, and routes the long tail into section-namespaced JSONB.
   Extend `dictionary.ts` (not the logic) for new manufacturers / field promotions.
-- **API**
-  - `POST /api/parse-device` — pure & stateless; the shared contract for the web
-    UI, future browser extension, and bulk import.
-  - `POST /api/devices` — saves the reviewed payload, upserts the manufacturer,
+- **API** — this app is a catalog + read API/data source for other apps (e.g.
+  uStack, which does pricing/CPI). Read endpoints:
+  - `GET /api/devices` — list. Filters: `?manufacturer=`, `?device_class=`,
+    `?paper_size_class=` (A3|A4), `?q=` (model / full name / part #).
+  - `GET /api/devices/:id` — full device + supplies + attributes + image URL.
+  - `GET /api/devices/export` — list incl. JSONB attributes (full CSV source).
+  - `GET /api/supplies/export` — one row per SKU, joined to its device.
+  - `GET /api/devices/check?manufacturer=&model=` — duplicate lookup.
+  - `GET /api/health`.
+
+  Write / parse endpoints:
+  - `POST /api/parse-device` — pure & stateless; shared parser contract for the
+    web UI, future browser extension, and bulk import.
+  - `POST /api/devices` — saves a reviewed payload, upserts the manufacturer,
     detects duplicates (manufacturer+model → 409 with `overwrite` to update),
     uploads the optional image, and replaces supplies.
-  - `GET /api/devices/check` — duplicate lookup. `GET /api/health`.
-- **Schema** — `supabase/migrations/0001_init.sql` (mirrors the parser output).
+- **Schema** — `supabase/migrations/*.sql` (mirrors the parser output).
 
 ## Setup
 1. `npm install`

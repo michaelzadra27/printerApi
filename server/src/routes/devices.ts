@@ -118,11 +118,15 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // Catalog listing for the browse view + CSV export.
-  app.get('/api/devices', async (_req, reply) => {
+  // Catalog listing for the browse view + CSV export. Consuming apps (uStack)
+  // can filter via query params: manufacturer, device_class, paper_size_class, q.
+  app.get<{
+    Querystring: { manufacturer?: string; device_class?: string; paper_size_class?: string; q?: string };
+  }>('/api/devices', async (req, reply) => {
     if (!supabaseConfigured) return reply.code(503).send({ error: 'Supabase not configured.' });
     const sb = getSupabase();
-    const { data, error } = await sb
+
+    let query = sb
       .from('devices')
       .select(
         `id, model, full_name, device_class, color_capability, technology, part_number,
@@ -134,8 +138,26 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
          paper_size_class, image_path, parse_confidence, updated_at,
          manufacturers ( name ),
          device_supplies ( count )`,
-      )
-      .order('updated_at', { ascending: false });
+      );
+
+    if (req.query.device_class) query = query.eq('device_class', req.query.device_class);
+    if (req.query.paper_size_class) query = query.eq('paper_size_class', req.query.paper_size_class);
+    if (req.query.q) {
+      // Sanitize to keep the PostgREST or() syntax intact.
+      const q = req.query.q.replace(/[(),%*]/g, ' ').trim();
+      if (q) query = query.or(`model.ilike.%${q}%,full_name.ilike.%${q}%,part_number.ilike.%${q}%`);
+    }
+    if (req.query.manufacturer) {
+      const { data: mfr } = await sb
+        .from('manufacturers')
+        .select('id')
+        .ilike('name', req.query.manufacturer)
+        .maybeSingle();
+      if (!mfr) return { devices: [] }; // unknown manufacturer → empty result
+      query = query.eq('manufacturer_id', mfr.id);
+    }
+
+    const { data, error } = await query.order('updated_at', { ascending: false });
     if (error) return reply.code(500).send({ error: error.message });
 
     const devices = (data ?? []).map((row) => {
