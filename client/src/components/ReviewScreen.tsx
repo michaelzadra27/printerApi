@@ -44,7 +44,17 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       { key: 'speedPpmColor', label: 'Speed color (ppm)', kind: 'number' },
       { key: 'speedPpmBlack', label: 'Speed black (ppm)', kind: 'number' },
       { key: 'firstCopyOutSec', label: 'First copy out (s)', kind: 'number' },
-      { key: 'scanSpeedIpm', label: 'Scan speed (ipm)', kind: 'number' },
+    ],
+  },
+  {
+    title: 'Scanner',
+    fields: [
+      { key: 'scanSpeedSimplexBlack', label: 'Simplex B/W (ipm)', kind: 'number' },
+      { key: 'scanSpeedSimplexColor', label: 'Simplex color (ipm)', kind: 'number' },
+      { key: 'scanSpeedDuplexBlack', label: 'Duplex B/W (ipm)', kind: 'number' },
+      { key: 'scanSpeedDuplexColor', label: 'Duplex color (ipm)', kind: 'number' },
+      { key: 'documentFeeder', label: 'Document feeder', kind: 'text' },
+      { key: 'scannerFeederType', label: 'Feeder type', kind: 'text' },
     ],
   },
   {

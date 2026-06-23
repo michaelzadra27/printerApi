@@ -16,6 +16,7 @@ import {
   parseSpeed,
   parseFirstCopyOut,
   parseScanSpeed,
+  deriveFeederType,
   parseStatus,
   parseCapability,
 } from './values.js';
@@ -169,6 +170,15 @@ export function parseDevice(rawText: string): ParseResult {
 
   const supplies = parseSupplies(supplyLines);
 
+  // Feeder type needs both the Document Feeder field and the scan speeds,
+  // which appear in different sections — derive once everything is parsed.
+  device.scannerFeederType = deriveFeederType(device.documentFeeder, {
+    simplexColor: device.scanSpeedSimplexColor,
+    simplexBlack: device.scanSpeedSimplexBlack,
+    duplexColor: device.scanSpeedDuplexColor,
+    duplexBlack: device.scanSpeedDuplexBlack,
+  });
+
   const unmappedKeys = Object.entries(attributes).flatMap(([sec, kv]) =>
     Object.keys(kv).map((k) => `${sec}.${k}`),
   );
@@ -243,8 +253,15 @@ function mapPair(
     case 'scan speed':
       if (!isSentinel(value)) {
         device.scanSpeedRaw = value.trim();
-        device.scanSpeedIpm = parseScanSpeed(value);
+        const ss = parseScanSpeed(value);
+        device.scanSpeedSimplexColor = ss.simplexColor;
+        device.scanSpeedSimplexBlack = ss.simplexBlack;
+        device.scanSpeedDuplexColor = ss.duplexColor;
+        device.scanSpeedDuplexBlack = ss.duplexBlack;
       }
+      return;
+    case 'document feeder':
+      if (!isSentinel(value)) device.documentFeeder = value.trim();
       return;
     case 'network interface':
     case 'interface type':

@@ -56,15 +56,60 @@ export function parseFirstCopyOut(value: string): number | null {
   return firstNumber(value);
 }
 
-// "20 ipm color, 29 ipm black/34 ipm color, 46 ipm black" -> 29 (simplex black, else first)
-export function parseScanSpeed(value: string): number | null {
-  const simplex = value.split('/')[0] ?? value;
-  const blackSeg = simplex.split(',').find((s) => /black|mono/i.test(s));
-  if (blackSeg) {
-    const n = firstNumber(blackSeg);
-    if (n !== null) return n;
+export interface ScanSpeed {
+  simplexColor: number | null;
+  simplexBlack: number | null;
+  duplexColor: number | null;
+  duplexBlack: number | null;
+}
+
+// "20 ipm color, 29 ipm black/34 ipm color, 46 ipm black"
+//   -> simplex {color:20, black:29}, duplex {color:34, black:46}
+// The BLI label is "Scan Speed (Simplex/Duplex)": '/' separates the two sides,
+// ',' separates color/black within a side. A single side (no '/') is simplex.
+export function parseScanSpeed(value: string): ScanSpeed {
+  const sides = value.split('/');
+  const parseSide = (s: string): { color: number | null; black: number | null } => {
+    let color: number | null = null;
+    let black: number | null = null;
+    for (const seg of s.split(',')) {
+      const n = firstNumber(seg);
+      if (n === null) continue;
+      if (/colou?r/i.test(seg)) color = n;
+      else if (/black|mono/i.test(seg)) black = n;
+      else if (black === null) black = n; // bare number defaults to black/mono
+    }
+    return { color, black };
+  };
+  const simplex = parseSide(sides[0] ?? '');
+  const duplex = sides[1] ? parseSide(sides[1]) : { color: null, black: null };
+  return {
+    simplexColor: simplex.color,
+    simplexBlack: simplex.black,
+    duplexColor: duplex.color,
+    duplexBlack: duplex.black,
+  };
+}
+
+// Duplex single-pass feeders capture both sides per pass (≈2× simplex ipm);
+// reversing feeders re-feed each sheet. Prefer the explicitly named feeder
+// type; fall back to the speed ratio only when the feeder type is unstated.
+const SINGLE_PASS_RATIO = 1.8;
+
+export function deriveFeederType(
+  documentFeeder: string | null,
+  scan: ScanSpeed,
+): string | null {
+  const f = (documentFeeder ?? '').toLowerCase();
+  if (/single.?pass|dspf|dsdf|dual.?scan/.test(f)) return 'single-pass';
+  if (/revers|radf|ardf|rspf/.test(f)) return 'reversing';
+
+  const simplex = scan.simplexBlack ?? scan.simplexColor;
+  const duplex = scan.duplexBlack ?? scan.duplexColor;
+  if (simplex && duplex && simplex > 0) {
+    return duplex / simplex >= SINGLE_PASS_RATIO ? 'single-pass' : 'reversing';
   }
-  return firstNumber(simplex);
+  return null;
 }
 
 // "Discontinued (07/2023)" -> { status: 'discontinued', raw }

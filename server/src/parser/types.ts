@@ -44,8 +44,13 @@ export interface ParsedDevice {
   speedRaw: string | null;
   firstCopyOutSec: number | null;
   firstCopyOutRaw: string | null;
-  scanSpeedIpm: number | null;
+  scanSpeedSimplexBlack: number | null;
+  scanSpeedSimplexColor: number | null;
+  scanSpeedDuplexBlack: number | null;
+  scanSpeedDuplexColor: number | null;
   scanSpeedRaw: string | null;
+  documentFeeder: string | null; // raw, e.g. "Std DSPF"
+  scannerFeederType: string | null; // derived: 'single-pass' | 'reversing'
 
   // Capabilities (elevated per product owner)
   faxCapable: boolean | null;
@@ -88,8 +93,13 @@ export function emptyDevice(): ParsedDevice {
     speedRaw: null,
     firstCopyOutSec: null,
     firstCopyOutRaw: null,
-    scanSpeedIpm: null,
+    scanSpeedSimplexBlack: null,
+    scanSpeedSimplexColor: null,
+    scanSpeedDuplexBlack: null,
+    scanSpeedDuplexColor: null,
     scanSpeedRaw: null,
+    documentFeeder: null,
+    scannerFeederType: null,
     faxCapable: null,
     faxRaw: null,
     hasEthernet: null,

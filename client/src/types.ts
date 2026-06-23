@@ -38,8 +38,13 @@ export interface ParsedDevice {
   speedRaw: string | null;
   firstCopyOutSec: number | null;
   firstCopyOutRaw: string | null;
-  scanSpeedIpm: number | null;
+  scanSpeedSimplexBlack: number | null;
+  scanSpeedSimplexColor: number | null;
+  scanSpeedDuplexBlack: number | null;
+  scanSpeedDuplexColor: number | null;
   scanSpeedRaw: string | null;
+  documentFeeder: string | null;
+  scannerFeederType: string | null;
   faxCapable: boolean | null;
   faxRaw: string | null;
   hasEthernet: boolean | null;

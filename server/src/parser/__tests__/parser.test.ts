@@ -37,7 +37,20 @@ describe('parseDevice — HP M479fdn BLI sample', () => {
     expect(d.speedPpmColor).toBe(28);
     expect(d.speedPpmBlack).toBe(28);
     expect(d.firstCopyOutSec).toBe(9.5); // prefers black
-    expect(d.scanSpeedIpm).toBe(29); // simplex black
+  });
+
+  it('captures scan speed as simplex AND duplex (color + black)', () => {
+    expect(d.scanSpeedSimplexColor).toBe(20);
+    expect(d.scanSpeedSimplexBlack).toBe(29);
+    expect(d.scanSpeedDuplexColor).toBe(34);
+    expect(d.scanSpeedDuplexBlack).toBe(46);
+  });
+
+  it('derives feeder type from the Document Feeder field (DSPF = single-pass)', () => {
+    // "Std DSPF" is single-pass even though duplex (46) is only 1.59x simplex (29),
+    // so the named-feeder signal must win over the speed ratio.
+    expect(d.documentFeeder).toBe('Std DSPF');
+    expect(d.scannerFeederType).toBe('single-pass');
   });
 
   it('elevates capability fields (fax / network / wifi)', () => {
