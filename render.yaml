@@ -1,0 +1,22 @@
+# Render Blueprint — hosts the Fastify API.
+# In Render: New → Blueprint → connect this repo. Render reads this file.
+# Set the two `sync: false` secrets in the dashboard after the service is created.
+services:
+  - type: web
+    name: ustack-device-catalog-api
+    runtime: node
+    plan: free
+    # Build/run from the repo root using the npm workspace so the single
+    # root lockfile is respected.
+    buildCommand: npm install && npm run build --workspace server
+    startCommand: npm run start --workspace server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_IMAGE_BUCKET
+        value: device-images
