@@ -14,6 +14,7 @@ import {
   parsePriceePair,
   parseFirstCopyOut,
   maxPpm,
+  classifyPaperClass,
   parseScanSpeed,
   deriveFeederType,
   parseStatus,
@@ -122,10 +123,17 @@ export function parseDevice(rawText: string): ParseResult {
   // Color/mono is often only stated on the mashed header line that gets stripped
   // as junk, e.g. "ColorLetter/Legal/A4Compatible Solutions" or
   // "MonochromeLetter/Legal/A4Compatible Solutions".
-  if (device.colorCapability === null) {
+  // The same line also encodes the media class, e.g.
+  // "ColorLedger/Tabloid/A3…" (A3) vs "ColorLetter/Legal/A4…" (A4).
+  {
     const mashed = allLines.slice(0, 8).find((l) => /compatible solutions/i.test(l));
-    if (mashed && /^\s*mono/i.test(mashed)) device.colorCapability = 'mono';
-    else if (mashed && /^\s*colou?r/i.test(mashed)) device.colorCapability = 'color';
+    if (mashed) {
+      if (device.colorCapability === null) {
+        if (/^\s*mono/i.test(mashed)) device.colorCapability = 'mono';
+        else if (/^\s*colou?r/i.test(mashed)) device.colorCapability = 'color';
+      }
+      if (device.paperSizeClass === null) device.paperSizeClass = classifyPaperClass(mashed);
+    }
   }
 
   // ── Body: walk remaining lines, tracking the current section. ─────────────
@@ -174,7 +182,13 @@ export function parseDevice(rawText: string): ParseResult {
     }
   }
 
-  const supplies = parseSupplies(supplyLines);
+  // Fallback paper-class from the max paper size if the header didn't state it.
+  if (device.paperSizeClass === null && device.maxPaperSize) {
+    device.paperSizeClass = classifyPaperClass(device.maxPaperSize);
+  }
+
+  // Skip supplies for A3 devices — we never do MPS takeover on A3.
+  const supplies = device.paperSizeClass === 'A3' ? [] : parseSupplies(supplyLines);
 
   // Single-function printers don't fax/scan/copy — record fax as absent rather
   // than leaving it blank when no multifunction section was present.

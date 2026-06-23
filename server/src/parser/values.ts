@@ -64,6 +64,15 @@ export function parseFirstCopyOut(value: string): number | null {
   return firstNumber(value);
 }
 
+// Classify a device's media handling as A3 (ledger/tabloid, 11x17 and up) or
+// A4 (letter/legal). Reads either the mashed header line
+// ("ColorLedger/Tabloid/A3…") or the max paper-size dimensions ("11 x 17").
+export function classifyPaperClass(text: string): 'A3' | 'A4' | null {
+  if (/\ba3\b|ledger|tabloid|11\s*x\s*17|12(\.\d+)?\s*x\s*18|sra3/i.test(text)) return 'A3';
+  if (/\ba4\b|letter|legal|8[.\-]?1?\/?2?"?\s*x\s*1[14]/i.test(text)) return 'A4';
+  return null;
+}
+
 export interface ScanSpeed {
   simplexColor: number | null;
   simplexBlack: number | null;

@@ -65,6 +65,7 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       { key: 'hasNfc', label: 'NFC', kind: 'bool' },
       { key: 'networkInterfaceRaw', label: 'Network interface', kind: 'text' },
       { key: 'maxPaperSize', label: 'Max paper size', kind: 'text' },
+      { key: 'paperSizeClass', label: 'Paper class (A3/A4)', kind: 'text' },
     ],
   },
 ];

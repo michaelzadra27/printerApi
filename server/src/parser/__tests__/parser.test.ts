@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseDevice } from '../index.js';
 import { M479FDN_SAMPLE } from './m479fdn.sample.js';
 import { M404DN_SAMPLE } from './m404dn.sample.js';
+import { C360I_SAMPLE } from './c360i.sample.js';
 
 describe('parseDevice — HP M479fdn BLI sample', () => {
   const result = parseDevice(M479FDN_SAMPLE);
@@ -149,5 +150,56 @@ describe('parseDevice — HP M404dn single-function printer (different template)
     expect(d.streetPrice).toBe(369);
     expect(d.srpPrice).toBeNull(); // "INA/$369"
     expect(d.manufacturingStatus).toBe('discontinued');
+  });
+});
+
+describe('parseDevice — Konica Minolta C360i A3 copier', () => {
+  const result = parseDevice(C360I_SAMPLE);
+  const d = result.device;
+
+  it('parses identity and classifies as A3 from the header line', () => {
+    expect(d.manufacturer).toBe('Konica Minolta');
+    expect(d.model).toBe('bizhub C360i');
+    expect(d.deviceClass).toBe('copier');
+    expect(d.colorCapability).toBe('color');
+    expect(d.paperSizeClass).toBe('A3');
+    expect(d.maxPaperSize).toBe('11 x 17');
+  });
+
+  it('skips supplies entirely on A3 (no MPS takeover on A3)', () => {
+    expect(result.supplies).toHaveLength(0);
+  });
+
+  it('keeps fax (optional) for a multifunction copier', () => {
+    expect(d.faxCapable).toBe(true); // "Fax: Opt"
+    expect(d.faxRaw).toBe('Opt');
+  });
+
+  it('reads connectivity incl. optional wireless', () => {
+    expect(d.hasEthernet).toBe(true);
+    expect(d.hasWifi).toBe(true); // "opt wireless" / 802.11
+    expect(d.hasNfc).toBe(true);
+  });
+
+  it('derives single-pass feeder and full scan speeds', () => {
+    expect(d.scannerFeederType).toBe('single-pass');
+    expect(d.scanSpeedSimplexBlack).toBe(100);
+    expect(d.scanSpeedDuplexBlack).toBe(200);
+  });
+
+  it('parses SRP correctly ($19,482 SRP / no street)', () => {
+    expect(d.srpPrice).toBe(19482);
+    expect(d.streetPrice).toBeNull();
+    expect(d.manufacturingStatus).toBe('active');
+  });
+});
+
+// A4 devices must still classify as A4 (regression guard).
+describe('paperSizeClass regression — A4 devices', () => {
+  it('classifies the M404dn printer as A4', () => {
+    expect(parseDevice(M404DN_SAMPLE).device.paperSizeClass).toBe('A4');
+  });
+  it('classifies the M479fdn MFP as A4', () => {
+    expect(parseDevice(M479FDN_SAMPLE).device.paperSizeClass).toBe('A4');
   });
 });

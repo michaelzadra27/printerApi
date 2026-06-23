@@ -30,6 +30,7 @@ export interface CatalogDevice {
   has_nfc: boolean | null;
   network_interface_raw: string | null;
   max_paper_size: string | null;
+  paper_size_class: string | null;
   supply_count: number;
   parse_confidence: number | null;
   updated_at: string;

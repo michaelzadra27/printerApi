@@ -51,6 +51,7 @@ export interface ParsedDevice {
   hasNfc: boolean | null;
   networkInterfaceRaw: string | null;
   maxPaperSize: string | null;
+  paperSizeClass: string | null;
 }
 
 export interface ParseResult {

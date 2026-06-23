@@ -46,6 +46,7 @@ function toRow(d: ParsedDevice, manufacturerId: string | null, extra: Record<str
     has_nfc: d.hasNfc,
     network_interface_raw: d.networkInterfaceRaw,
     max_paper_size: d.maxPaperSize,
+    paper_size_class: d.paperSizeClass,
     ...extra,
   };
 }
@@ -127,7 +128,7 @@ export async function deviceRoutes(app: FastifyInstance): Promise<void> {
          first_copy_out_sec, scan_speed_simplex_black, scan_speed_simplex_color,
          scan_speed_duplex_black, scan_speed_duplex_color, document_feeder, scanner_feeder_type,
          fax_capable, has_ethernet, has_wifi, has_nfc, network_interface_raw, max_paper_size,
-         image_path, parse_confidence, updated_at,
+         paper_size_class, image_path, parse_confidence, updated_at,
          manufacturers ( name ),
          device_supplies ( count )`,
       )

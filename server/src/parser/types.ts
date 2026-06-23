@@ -61,6 +61,7 @@ export interface ParsedDevice {
 
   // Paper
   maxPaperSize: string | null;
+  paperSizeClass: string | null; // 'A3' | 'A4'
 }
 
 export interface ParseResult {
@@ -105,5 +106,6 @@ export function emptyDevice(): ParsedDevice {
     hasNfc: null,
     networkInterfaceRaw: null,
     maxPaperSize: null,
+    paperSizeClass: null,
   };
 }

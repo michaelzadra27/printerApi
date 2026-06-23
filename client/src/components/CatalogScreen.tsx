@@ -29,6 +29,7 @@ const CSV_COLUMNS: CsvColumn[] = [
   { key: 'has_nfc', label: 'NFC' },
   { key: 'network_interface_raw', label: 'Network Interface' },
   { key: 'max_paper_size', label: 'Max Paper Size' },
+  { key: 'paper_size_class', label: 'Paper Class' },
   { key: 'supply_count', label: 'Supplies' },
   { key: 'updated_at', label: 'Updated' },
 ];
@@ -113,7 +114,7 @@ export default function CatalogScreen() {
           <table className="w-full text-left text-xs">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
               <tr>
-                {['Manufacturer', 'Model', 'Class', 'Color', 'Speed', 'Status', 'Feeder', 'Fax', 'Wi-Fi', 'Supplies'].map((h) => (
+                {['Manufacturer', 'Model', 'Class', 'Color', 'Paper', 'Speed', 'Status', 'Feeder', 'Fax', 'Wi-Fi', 'Supplies'].map((h) => (
                   <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">{h}</th>
                 ))}
               </tr>
@@ -125,6 +126,7 @@ export default function CatalogScreen() {
                   <td className="px-3 py-2 font-medium text-slate-800">{d.model}</td>
                   <td className="px-3 py-2 uppercase">{d.device_class}</td>
                   <td className="px-3 py-2">{d.color_capability ?? '—'}</td>
+                  <td className="px-3 py-2">{d.paper_size_class ?? '—'}</td>
                   <td className="px-3 py-2">{d.speed_ppm ?? '—'}</td>
                   <td className="px-3 py-2">{d.manufacturing_status ?? '—'}</td>
                   <td className="whitespace-nowrap px-3 py-2">{d.scanner_feeder_type ?? '—'}</td>
